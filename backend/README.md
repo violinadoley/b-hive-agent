@@ -37,6 +37,7 @@
 | `scripts/rag-seed.js` | Indexes repo `docs/**/*.md` into Qdrant (`npm run rag:seed`) |
 | `scripts/run-orchestrator.js` | Runs full orchestrator pipeline (`npm run orchestrate`) |
 | `scripts/monitor-loop.js` | Continuous rate-aware monitor loop (`npm run monitor:start`) |
+| `scripts/create-hcs-topic.js` | Create Hedera HCS topic for attestation (`npm run hcs:create-topic`) |
 | `src/run-smoke.js` | Full smoke pipeline |
 | `test-main.js` | CLI entry |
 
@@ -82,7 +83,7 @@ Verbose decision trace in terminal:
 npm run orchestrate:verbose
 ```
 
-Pipeline nodes (current): `market` → `risk` → `execution_read` → `external_context` → `strategy_reasoner` → `execution_gate` → `vault_scope_check` → `hedera_toolkit_bootstrap` → `hcs_attestation`.
+Pipeline nodes (current): `market` → `mirror_account` → `risk` → `execution_read` → `external_context` → `strategy_reasoner` → `execution_gate` → `vault_scope_check` → `hedera_toolkit_bootstrap` → `hcs_attestation`.
 
 What this gives you:
 
@@ -91,7 +92,13 @@ What this gives you:
 - **L1 decision log** appended to `DECISION_LOG_PATH` as JSONL `DecisionEvent`s.
 - **Run commitment** (`SHA-256` over canonical run envelope) and optional **HCS attestation** when `HCS_TOPIC_ID` is set.
 
-`.env` is loaded at runtime from `agents/.env` by `src/config.js`. The orchestrator runner prints an env verification block (safe/masked values) before each run.
+`.env` is loaded at runtime from `backend/.env` by `src/config.js`. The orchestrator runner prints an env verification block (safe/masked values) before each run.
+
+If `HCS_TOPIC_ID` is missing, attestation is skipped with remediation details. Create one topic via:
+
+```bash
+npm run hcs:create-topic
+```
 
 ### Live proactive monitoring
 

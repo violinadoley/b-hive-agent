@@ -4,6 +4,7 @@ const { runBonzoStateAgent } = require("../agents/bonzo-state-agent");
 const { runMarketAgent } = require("../agents/market-agent");
 const { runRiskAgent } = require("../agents/risk-agent");
 const { runExecutionReadAgent } = require("../agents/execution-read-agent");
+const mirror = require("../integrations/mirror-node");
 const { runHederaToolkitAgentBootstrap } = require("../agents/hedera-toolkit-agent");
 const { runStrategyReasonerAgent } = require("../agents/strategy-reasoner-agent");
 const {
@@ -104,6 +105,7 @@ async function runOrchestrator({
     pack,
     market: null,
     risk: null,
+    mirrorAccount: null,
     executionRead: null,
     externalContext: null,
     strategy: null,
@@ -165,11 +167,39 @@ async function runOrchestrator({
   })());
   state.market = marketOutputs;
 
-  const riskOutputs = await emitStep(
-    "risk",
+  const mirrorOutputs = await emitStep(
+    "mirror_account",
     { account_id: state.accountId },
     await (async () => {
-      const out = await runRiskAgent(state.accountId);
+      if (!state.accountId) {
+        return { outputs: { ok: false, skipped: true, reason: "No ACCOUNT_ID set" }, toolCalls: [] };
+      }
+      try {
+        const account = await mirror.fetchAccountById(state.accountId);
+        return {
+          outputs: {
+            ok: true,
+            account_id: account.account,
+            evm_address: account.evm_address || null,
+            tinybar_balance: account.balance?.balance ?? null,
+          },
+          toolCalls: [{ tool: "mirror.fetchAccountById" }],
+        };
+      } catch (e) {
+        return { outputs: { ok: false, reason: e.message }, toolCalls: [{ tool: "mirror.fetchAccountById" }] };
+      }
+    })(),
+  );
+  state.mirrorAccount = mirrorOutputs;
+  if (!state.evmAddress && mirrorOutputs?.evm_address) {
+    state.evmAddress = mirrorOutputs.evm_address;
+  }
+
+  const riskOutputs = await emitStep(
+    "risk",
+    { account_id: state.accountId, evm_address: state.evmAddress || null },
+    await (async () => {
+      const out = await runRiskAgent(state.accountId, state.evmAddress);
       return { outputs: out, toolCalls: [{ tool: "bonzo.fetchDashboard" }] };
     })(),
   );

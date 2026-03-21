@@ -9,7 +9,8 @@
     "rag:seed": "node scripts/rag-seed.js",
     "orchestrate": "node scripts/run-orchestrator.js",
     "orchestrate:verbose": "node scripts/run-orchestrator.js --verbose",
-    "monitor:start": "node scripts/monitor-loop.js"
+    "monitor:start": "node scripts/monitor-loop.js",
+    "hcs:create-topic": "node scripts/create-hcs-topic.js"
   },
   "keywords": [],
   "author": "",

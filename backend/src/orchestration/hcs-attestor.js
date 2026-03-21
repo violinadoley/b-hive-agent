@@ -5,7 +5,13 @@ const { buildHederaClient } = require("../agents/hedera-toolkit-agent");
 async function submitRunAttestation({ runId, commitment, stepCount, policyId, packId }) {
   const cfg = getConfig();
   if (!cfg.hcsTopicId) {
-    return { ok: false, skipped: true, reason: "HCS_TOPIC_ID not set" };
+    return {
+      ok: false,
+      skipped: true,
+      reason: "HCS_TOPIC_ID not set",
+      remediation:
+        "Create a topic (npm run hcs:create-topic) and set HCS_TOPIC_ID in backend/.env, then rerun orchestrator.",
+    };
   }
   const client = buildHederaClient();
   try {

@@ -34,6 +34,20 @@
 
 ---
 
+## Swarm operating model (target demo behavior)
+
+The target is a **tiered autonomous swarm**, not all agents calling all APIs every cycle.
+
+1. **Watcher agents (cheap, frequent):** poll mirror/Bonzo/external feeds on bounded intervals and emit normalized state updates.
+2. **Junior reasoner (cheap model):** reads watcher deltas and classifies if the change is meaningful (`ignore`, `watch`, `escalate`).
+3. **Senior strategist (stronger model):** runs only on escalation; reasons over policy + vault strategy context + RAG.
+4. **Actor agents:** propose execution plans (and later execute only after approval gate).
+5. **Reporter agent:** pushes user-facing update (dashboard stream + Telegram digest).
+
+This keeps API/LLM costs controlled while still delivering a true proactive experience.
+
+---
+
 ## Strategy packs (curated)
 
 Presets (e.g. SafeYield / Balanced / MaxYield) = **config** that toggles pipeline branches and risk caps — not third-party arbitrary code upload. Details: **Master Plan §6**.

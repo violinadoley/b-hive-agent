@@ -8,16 +8,16 @@
 
 | # | Target (peak expectation) | Implemented today |
 |---|---------------------------|-------------------|
-| 1 | **Web dashboard** as system of record: full pipeline view, decision history, policy editor, strategy pack picker, PnL/risk summaries, tx links | **Not implemented** — no dashboard app or API in repo |
+| 1 | **Web dashboard** as system of record: full pipeline view, decision history, policy editor, strategy pack picker, PnL/risk summaries, tx links | **Partial** — minimal live dashboard implemented (agent graph + timeline + verifiability panel); policy editor/packs/PnL still pending |
 | 2 | **Telegram** companion: alerts, short commands (`status`, run check), approve/reject for gated actions, deep links to dashboard | **Not implemented** — no bot or webhook |
-| 3 | **Orchestrator** `run(pipelineId, context)` executing a **declared ordered graph** (Market → BonzoState → Risk → Strategy → optional VaultKeeper → ExecutionGate) | **Partial** — implemented `runOrchestrator` with explicit node pipeline (market, mirror_account, risk, execution_read, external_context, strategy_reasoner, execution_gate, vault_scope_check, toolkit bootstrap, HCS attestation) |
+| 3 | **Orchestrator** `run(pipelineId, context)` executing a **declared ordered graph** (Market → BonzoState → Risk → Strategy → optional VaultKeeper → ExecutionGate) | **Partial** — implemented `runOrchestrator` with explicit node pipeline (market, mirror_account, risk, execution_read, external_context, **junior_gate**, strategy_reasoner, execution_gate, vault_scope_check, toolkit bootstrap, HCS attestation) |
 | 4 | **LLM inside nodes only** for bounded tasks (classify, explain, choose among **enumerated** actions); graph order is **code**, not model-decided | **Partial** — strategy reasoner node uses LangChain agent + strict system prompt; pipeline order is deterministic code |
 | 5 | **Pipeline definition** module: ordered steps + conditions documented in one place | **Partial** — centralized in `backend/src/orchestration/pipeline-orchestrator.js` |
 | 6 | **DecisionEvent** schema: `run_id`, `step_index`, `agent`, `inputs_digest`, `outputs`, `tool_calls`, `policy_id`/`pack_id`, `llm_model`, `ts`, `execution_intent` | **Partial** — emitted per node and appended to JSONL L1 store |
 | 7 | **L0** in-memory / ring buffer log for dev | **Not implemented** |
 | 8 | **L1** append-only **file** or **SQLite** + dashboard API reads | **Partial** — append-only JSONL store (`DECISION_LOG_PATH`) implemented; runs API not yet |
 | 9 | **L2** Postgres / cloud DB for post-hackathon | **Not implemented** |
-| 10 | HTTP API: `GET /runs`, `GET /runs/:id` | **Not implemented** |
+| 10 | HTTP API: `GET /runs`, `GET /runs/:id` | **Partial** — backend API now serves latest run + run events + event stream (`/api/runs/latest`, `/api/runs/:id/events`, `/api/events`, `/api/stream/events`) |
 | 11 | Telegram receives **summaries** from latest events, not full raw log | **Not implemented** |
 | 12 | **HCS attestation**: commitment hash per run/step; topic submit; “verify on Mirror” UX | **Partial** — run commitment hash + HCS `TopicMessageSubmit` works when `HCS_TOPIC_ID` is set (validated in backend run logs); includes `npm run hcs:create-topic` helper; UI still pending |
 | 13 | **Dual-hash** optional extension (policy + outputs) | **Not implemented** |
@@ -36,11 +36,11 @@
 | 26 | **External context** for keeper: prices, volatility, sentiment/oracles (per bounty framing) | **Partial** — Bonzo Data API + on-chain read + RAG docs only; **no** dedicated price/vol/sentiment/oracle feeds (see rows 39–42) |
 | 27 | **Smoke / verify** script proving Hedera + Bonzo + RPC + toolkit + optional Groq + optional Qdrant | **Implemented** — `backend` npm `verify` / `test-main.js` + `run-smoke.js` |
 | 28 | **Documentation map**: Master-Plan, integration guide, hackathon doc, env docs | **Implemented** — under `docs/`; **this file** is the status layer |
-| 29 | **Timeline UI** consuming runs API | **Not implemented** |
+| 29 | **Timeline UI** consuming runs API | **Partial** — dashboard consumes latest run and live SSE events |
 | 30 | **Policy + pack editor** (minimal) in dashboard | **Not implemented** |
 | 31 | **Telegram webhook** → same backend API (`/status`, approve/reject callbacks) | **Not implemented** |
 | 32 | **Push digest** from last `run_id` to Telegram | **Not implemented** |
-| 33 | **UI**: “Verify on Mirror” + instructions for attestations | **Not implemented** |
+| 33 | **UI**: “Verify on Mirror” + instructions for attestations | **Partial** — dashboard shows topic/sequence/commitment and Mirror link when attestation exists |
 | 34 | **Phase 1 checklist** (Master-Plan §8): Pipeline + Orchestrator + L1 + runs API | **Open** — see rows 3, 6–10 |
 | 35 | **Phase 2 checklist**: dashboard timeline + policy/pack editor | **Open** — see rows 1, 29–30 |
 | 36 | **Phase 3 checklist**: Telegram bot + digest | **Open** — see rows 2, 31–32 |
@@ -50,9 +50,14 @@
 | 40 | **Cross-chain monitoring** (liquidity, bridge/TVL signals, major L1/L2 stress) using **documented RPC/indexer APIs** only — **no fabricated chain IDs or contract addresses** | **Partial** — DefiLlama chains/TVL snapshot integration + tool added |
 | 41 | **Real-world live data** (rates, FX, macro indicators, economic calendar, commodities, optional alt datasets) via **explicit third-party APIs** | **Not implemented** — **providers not chosen**; same documentation rule as row 39 |
 | 42 | **External data integration matrix** — single table of: data type → provider → env vars → refresh cadence → failure mode; kept in repo docs and updated with Implementation-Status | **Partial** — matrix added to [`Integration-and-Build-Guide.md`](./Integration-and-Build-Guide.md); macro/economic providers still pending |
-| 43 | **Live proactive monitor loop** with bounded cadence and API budget controls (no spam) | **Partial** — `monitor-loop.js` added with interval, news/LLM throttling, daily cap, and no overlap; no distributed scheduler/HA yet |
+| 43 | **Live proactive monitor loop** with bounded cadence and API budget controls (no spam) | **Partial** — `monitor-loop.js` now runs bounded cycles with daily cap/no overlap and tiered toggles (`EXTERNAL_CONTEXT_EVERY_N_RUNS`, `FORCE_STRATEGY_EVERY_N_RUNS`); no distributed scheduler/HA yet |
 | 44 | **Queue/broker-backed async execution** (for retries, fan-out, worker scaling) | **Not implemented** — intentionally deferred until dashboard/API + multi-worker demand justify it |
+| 45 | **Tiered swarm runtime** (watcher agents → junior reasoner → senior strategist → actor/reporter) so not all agents hit APIs every cycle | **Partial** — watcher-like nodes run each cycle and a junior gate now controls strategist escalation; actor/reporter split and independent watcher workers still pending |
+| 46 | **Junior reasoner escalation gate** (small model decides when to invoke stronger strategist) | **Partial** — deterministic `junior_gate` added (health/debt/sentiment/utilization/forced audit signals) and `strategy_reasoner` runs only on escalation |
+| 47 | **State-delta triggers** (only react on meaningful position/market changes) | **Not implemented** — monitor runs periodic full cycle, no delta threshold engine yet |
+| 48 | **Autonomous reporter agent** (live user digest to Telegram + dashboard stream without manual prompt) | **Partial** — dashboard stream exists via SSE; Telegram reporting still missing |
+| 49 | **Execution actor path** (proposed action -> approval request -> post-approval execution) | **Not implemented** — only recommendation + gate metadata today, no actor execution workflow |
 
 ---
 
-*Last updated: 2026-03-21 (HCS submission validated + Bonzo fallback behavior clarified).*
+*Last updated: 2026-03-21 (junior escalation gate + tiered monitor controls).*

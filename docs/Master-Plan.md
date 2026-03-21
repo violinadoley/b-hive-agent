@@ -15,6 +15,7 @@ This document is the **one coherent narrative** for product flow, interfaces, or
 | [`Plan.md`](./Plan.md) | Short **product brief** + tagline (points here for architecture) |
 | [`Strategy-and-Roadmap.md`](./Strategy-and-Roadmap.md) | **Redirect** → this file + Hackathon |
 | [`Implementation-Status.md`](./Implementation-Status.md) | **Living** target vs implemented checklist (update with every milestone) |
+| [`Bonzo-Vaults-Registry.md`](./Bonzo-Vaults-Registry.md) | Bonzo vault LP address allowlist + strategy labels for keeper scope |
 
 ---
 
@@ -67,7 +68,7 @@ flowchart LR
 ### Today (repo reality)
 
 - **Specialist modules** and **tools** exist (Bonzo HTTP, mirror, Lend read-only RPC, LangChain tools, optional **Qdrant RAG** over repo docs, smoke script).
-- There is **no** single **Orchestrator** that enforces a **fixed step graph** across agents yet.
+- A first **Orchestrator** implementation now exists (`agents/src/orchestration/pipeline-orchestrator.js`) with explicit step order, DecisionEvent emission, and optional HCS attestation; dashboard/API integration is still pending.
 
 ### Target (what “orchestrated swarm” means)
 

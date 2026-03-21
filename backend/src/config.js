@@ -43,6 +43,8 @@ function getConfig() {
     /** Hashio JSON-RPC for EVM tooling (execution path later) */
     hederaJsonRpcUrl: str("HEDERA_JSON_RPC_URL", "https://testnet.hashio.io/api"),
     hederaChainId: Number(str("HEDERA_CHAIN_ID", "296")),
+    hcsTopicId: str("HCS_TOPIC_ID", ""),
+    decisionLogPath: str("DECISION_LOG_PATH", "data/decision-events.jsonl"),
 
     accountId: process.env.ACCOUNT_ID || "",
     evmAddress: process.env.ECDSA_EVM_ADDRESS || "",
@@ -57,6 +59,19 @@ function getConfig() {
 
     /** Fallback: OpenAI embeddings (`text-embedding-3-small`, 1536-dim) */
     openaiApiKey: process.env.OPENAI_API_KEY || "",
+
+    /** LLM model for strategy reasoner */
+    groqModel: str("GROQ_MODEL", "llama-3.3-70b-versatile"),
+
+    /** External context provider configuration */
+    gnewsApiKey: str("GNEWS_API_KEY", ""),
+    gnewsBaseUrl: str("GNEWS_BASE_URL", "https://gnews.io/api/v4"),
+    defiLlamaBaseUrl: str("DEFILLAMA_BASE_URL", "https://api.llama.fi"),
+    fearGreedApiBase: str("FEAR_GREED_API_BASE", "https://api.alternative.me"),
+
+    /** Vault keeper read scope — must be real values from Bonzo docs/env, never fabricated */
+    bonzoVaultAddress: str("BONZO_VAULT_ADDRESS", ""),
+    bonzoVaultStrategyAddress: str("BONZO_VAULT_STRATEGY_ADDRESS", ""),
   };
 }
 

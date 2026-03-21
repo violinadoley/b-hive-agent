@@ -269,9 +269,28 @@ For **developers** using `ethers`/`viem` + Hashio:
 - `bonzo_data_api` — HTTP client with configurable base URL
 - `mirror_client` — optional REST
 - `bonzo_evm` — typed contract facades using **verified** ABIs
+- `bonzo_vault_registry` — address allowlist + strategy labels from [`Bonzo-Vaults-Registry.md`](./Bonzo-Vaults-Registry.md)
 
 ### 11.5 Observability
 - Structured logs; user-visible tx failures
+
+### 11.6 External data integration matrix (live providers)
+
+| Data type | Provider | Endpoint | Env vars | Refresh cadence | Failure mode |
+|-----------|----------|----------|----------|-----------------|--------------|
+| Cross-chain TVL / stress proxy | DefiLlama | `GET /chains` (`https://api.llama.fi/chains`) | `DEFILLAMA_BASE_URL` | 1-5 min for monitor loops | Mark step degraded; continue with Bonzo-only signal |
+| Market sentiment regime | Alternative.me Fear & Greed | `GET /fng/?limit=1&format=json` | `FEAR_GREED_API_BASE` | 5-15 min | Mark sentiment unavailable; avoid risk-on recommendations |
+| Crypto news headlines | GNews | `GET /search` (`https://gnews.io/api/v4/search`) | `GNEWS_API_KEY`, `GNEWS_BASE_URL` | 5-15 min | Disable news tool when key missing; emit explicit missing-key event |
+| Docs retrieval context | Qdrant + Gemini/OpenAI embeddings | vector search + embeddings APIs | `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_COLLECTION`, `GEMINI_API_KEY` / `OPENAI_API_KEY` | Re-index on doc changes | Skip RAG evidence and lower confidence |
+
+Real-world macro feeds (rates/FX/calendar/commodities) are still pending provider selection. Add them to this table before enabling policy decisions that depend on them.
+
+### 11.7 Live monitoring cadence (rate-safe)
+
+- Use a fixed monitor interval (for example 300s) and avoid overlapping runs.
+- Run expensive nodes (LLM strategy, news APIs) less frequently than market/risk reads.
+- Apply daily run caps to stay under provider quotas.
+- Start without a broker for single-process hackathon scope; introduce queue workers when you need horizontal scaling or strict retry workflows.
 
 ---
 

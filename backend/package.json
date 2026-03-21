@@ -6,7 +6,10 @@
   "scripts": {
     "test": "node test-main.js",
     "verify": "node test-main.js",
-    "rag:seed": "node scripts/rag-seed.js"
+    "rag:seed": "node scripts/rag-seed.js",
+    "orchestrate": "node scripts/run-orchestrator.js",
+    "orchestrate:verbose": "node scripts/run-orchestrator.js --verbose",
+    "monitor:start": "node scripts/monitor-loop.js"
   },
   "keywords": [],
   "author": "",

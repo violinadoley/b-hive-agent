@@ -4,6 +4,7 @@
   "description": "",
   "main": "test-main.js",
   "scripts": {
+    "api:start": "node src/server.js",
     "test": "node test-main.js",
     "verify": "node test-main.js",
     "rag:seed": "node scripts/rag-seed.js",

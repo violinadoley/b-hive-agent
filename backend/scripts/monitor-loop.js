@@ -14,6 +14,7 @@ const strategyEvery = Math.max(1, Number(process.env.STRATEGY_EVERY_N_RUNS || 3)
 const newsEvery = Math.max(1, Number(process.env.NEWS_EVERY_N_RUNS || 2));
 const maxRunsPerDay = Math.max(1, Number(process.env.MAX_RUNS_PER_DAY || 240));
 const statePath = path.join(__dirname, "..", "data", "monitor-state.json");
+const heartbeatPath = path.join(__dirname, "..", "data", "monitor-heartbeat.json");
 
 function loadState() {
   try {
@@ -28,6 +29,25 @@ function saveState(state) {
   fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
 }
 
+function writeHeartbeat(patch) {
+  let current = {};
+  try {
+    current = JSON.parse(fs.readFileSync(heartbeatPath, "utf8"));
+  } catch {}
+  const next = {
+    pid: process.pid,
+    interval_seconds: intervalSec,
+    strategy_every_n_runs: strategyEvery,
+    news_every_n_runs: newsEvery,
+    max_runs_per_day: maxRunsPerDay,
+    updated_at: new Date().toISOString(),
+    ...current,
+    ...patch,
+  };
+  fs.mkdirSync(path.dirname(heartbeatPath), { recursive: true });
+  fs.writeFileSync(heartbeatPath, JSON.stringify(next, null, 2));
+}
+
 function rollDay(state) {
   const day = new Date().toISOString().slice(0, 10);
   if (state.day !== day) {
@@ -37,10 +57,18 @@ function rollDay(state) {
 }
 
 async function oneCycle() {
+  writeHeartbeat({ status: "running_cycle", last_cycle_started_at: new Date().toISOString() });
   const s = loadState();
   rollDay(s);
   if (s.runsToday >= maxRunsPerDay) {
     console.log(`[monitor] daily run cap reached (${maxRunsPerDay}); skipping cycle`);
+    writeHeartbeat({
+      status: "idle_daily_cap",
+      last_cycle_finished_at: new Date().toISOString(),
+      day: s.day,
+      runs_today: s.runsToday,
+      run_counter: s.runCounter,
+    });
     return;
   }
 
@@ -66,12 +94,22 @@ async function oneCycle() {
   console.log(
     `[monitor] done run=${out.runId} steps=${out.events.length} commitment=${out.commitment.slice(0, 12)}...`,
   );
+  writeHeartbeat({
+    status: "idle",
+    last_cycle_finished_at: new Date().toISOString(),
+    day: s.day,
+    runs_today: s.runsToday,
+    run_counter: s.runCounter,
+    last_run_id: out.runId,
+  });
 }
 
 async function main() {
   let running = false;
+  writeHeartbeat({ status: "booting" });
   await oneCycle();
   setInterval(async () => {
+    writeHeartbeat({ status: running ? "still_running_previous_cycle" : "tick_idle" });
     if (running) {
       console.log("[monitor] previous cycle still running; skip overlap");
       return;
@@ -81,6 +119,11 @@ async function main() {
       await oneCycle();
     } catch (e) {
       console.error(`[monitor] cycle failed: ${e.message || e}`);
+      writeHeartbeat({
+        status: "error",
+        last_error: e.message || String(e),
+        last_cycle_finished_at: new Date().toISOString(),
+      });
     } finally {
       running = false;
     }

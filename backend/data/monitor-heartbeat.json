@@ -1,0 +1,15 @@
+{
+  "pid": 11990,
+  "interval_seconds": 300,
+  "strategy_every_n_runs": 3,
+  "news_every_n_runs": 2,
+  "max_runs_per_day": 240,
+  "updated_at": "2026-03-21T14:28:19.525Z",
+  "status": "idle",
+  "last_cycle_started_at": "2026-03-21T14:58:41.079Z",
+  "last_cycle_finished_at": "2026-03-21T14:58:53.586Z",
+  "day": "2026-03-21",
+  "runs_today": 8,
+  "run_counter": 8,
+  "last_run_id": "d9934818-b21c-419e-a47e-1d88ee6cd3d1"
+}

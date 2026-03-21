@@ -49,6 +49,23 @@
 npm run verify
 ```
 
+## API + SSE
+
+Start the backend API server:
+
+```bash
+npm run api:start
+```
+
+Endpoints:
+
+- `GET /health`
+- `GET /api/events?limit=100`
+- `GET /api/runs/latest`
+- `GET /api/runs/:runId/events`
+- `GET /api/stream/events` (SSE)
+- `GET /api/runtime/status` (monitor heartbeat + event freshness)
+
 This checks:
 
 - Hedera **testnet** balance via `@hashgraph/sdk`

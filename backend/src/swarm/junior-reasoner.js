@@ -19,6 +19,14 @@ function toBigIntSafe(v) {
  * Lightweight escalation gate.
  * Purpose: decide if senior strategist should run this cycle.
  */
+function classifyLiquidationRisk(healthNum) {
+  if (healthNum == null) return null;
+  if (healthNum < 1.1) return "imminent";
+  if (healthNum < 1.2) return "critical";
+  if (healthNum < 1.5) return "elevated";
+  return "safe";
+}
+
 function evaluateJuniorEscalation({
   market,
   risk,
@@ -29,6 +37,7 @@ function evaluateJuniorEscalation({
 }) {
   const reasons = [];
   const threshold = parseFloatSafe(policy?.min_health_factor) ?? 1.2;
+  let liquidationRisk = null;
 
   if (forceStrategyReasoner) {
     reasons.push("forced_strategy_cycle");
@@ -40,8 +49,21 @@ function evaluateJuniorEscalation({
 
   const health = String(risk?.health_factor || executionRead?.position?.healthFactorDisplay || "");
   const healthNum = parseFloatSafe(health);
-  if (health && !isMaxUintHealthFactor(health) && healthNum != null && healthNum <= threshold) {
-    reasons.push(`health_factor_below_threshold_${threshold}`);
+
+  if (health && !isMaxUintHealthFactor(health) && healthNum != null) {
+    liquidationRisk = classifyLiquidationRisk(healthNum);
+
+    if (liquidationRisk === "imminent") {
+      reasons.push("liquidation_imminent");
+    } else if (liquidationRisk === "critical") {
+      reasons.push("liquidation_risk_critical");
+    } else if (liquidationRisk === "elevated") {
+      reasons.push("liquidation_risk_elevated");
+    }
+
+    if (healthNum <= threshold) {
+      reasons.push(`health_factor_below_threshold_${threshold}`);
+    }
   }
 
   const debt = toBigIntSafe(executionRead?.position?.totalDebtETH || executionRead?.raw_position?.totalDebtETH);
@@ -50,7 +72,7 @@ function evaluateJuniorEscalation({
   }
 
   const fear = parseFloatSafe(externalContext?.fear_greed?.value);
-  if (fear != null && fear <= 20) {
+  if (fear != null && fear <= 10) {
     reasons.push("extreme_fear_regime");
   }
 
@@ -65,6 +87,8 @@ function evaluateJuniorEscalation({
     reasons,
     confidence: shouldEscalate ? 0.8 : 0.6,
     junior_action: shouldEscalate ? "escalate" : "watch",
+    liquidation_risk: liquidationRisk,
+    health_factor: healthNum,
   };
 }
 

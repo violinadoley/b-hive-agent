@@ -31,9 +31,25 @@ function printEnvVerification() {
 
 async function main() {
   const verbose = process.argv.includes("--verbose");
+  const enableExec = process.argv.includes("--execute");
+  const autoApprove = process.argv.includes("--auto-approve");
   printEnvVerification();
+
+  if (enableExec) {
+    console.log("  *** EXECUTION MODE ENABLED — agent may submit on-chain transactions ***");
+  }
+  if (autoApprove) {
+    console.log("  *** AUTO-APPROVE — bypassing human approval gate ***");
+  }
   console.log("");
+
+  const policyOverrides = autoApprove
+    ? { auto_execute: true, require_human_approval: false }
+    : {};
+
   const out = await runOrchestrator({
+    enableExecutionActor: enableExec,
+    policy: { ...require("../src/orchestration/pipeline-orchestrator").defaultPolicy(), ...policyOverrides },
     onEvent: verbose
       ? (event) => {
           const status = event.outputs?.skipped
@@ -52,9 +68,17 @@ async function main() {
               `        execution_intent=${event.execution_intent.status} (${event.execution_intent.reason || "n/a"})`,
             );
           }
+          if (event.execution_intent?.tx_ref) {
+            console.log(`        tx_ref=${event.execution_intent.tx_ref}`);
+          }
+          if (event.execution_intent?.verify_url) {
+            console.log(`        verify=${event.execution_intent.verify_url}`);
+          }
         }
       : undefined,
   });
+
+  const execActor = out.state.executionActor || {};
   const compact = {
     runId: out.runId,
     commitment: out.commitment,
@@ -62,6 +86,14 @@ async function main() {
     packId: out.packId,
     steps: out.events.length,
     executionIntent: out.state.executionGate?.gate || { status: "none" },
+    executionActor: {
+      action_taken: execActor.parsed?.action_taken || execActor.action_taken || "none",
+      tx_id: execActor.tx_id || execActor.parsed?.tx_id || null,
+      tx_status: execActor.tx_status || execActor.parsed?.tx_status || null,
+      verify_url: execActor.verify_url || null,
+      skipped: execActor.skipped || false,
+      error: execActor.error || null,
+    },
     attestation: out.state.attestation,
   };
   console.log("\nRun summary:");

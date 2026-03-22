@@ -7,6 +7,7 @@ const { runExecutionReadAgent } = require("../agents/execution-read-agent");
 const mirror = require("../integrations/mirror-node");
 const { runHederaToolkitAgentBootstrap } = require("../agents/hedera-toolkit-agent");
 const { runStrategyReasonerAgent } = require("../agents/strategy-reasoner-agent");
+const { runExecutionAgent, buildHashScanUrl } = require("../agents/execution-agent");
 const { evaluateJuniorEscalation } = require("../swarm/junior-reasoner");
 const {
   fetchCrossChainTvlSnapshot,
@@ -41,14 +42,25 @@ function defaultPack() {
   };
 }
 
-function classifyExecutionIntent(strategyParsed, policy) {
+function classifyExecutionIntent(strategyParsed, policy, executionRead) {
   if (!strategyParsed || typeof strategyParsed !== "object") {
     return { status: "none", reason: "No parsed strategy output" };
   }
   const action = String(strategyParsed.recommended_action || "").toLowerCase();
-  if (!action || action === "monitor" || action === "hold") {
+  if (!action || action === "monitor" || action === "hold" || action === "invest_candidate") {
     return { status: "none", reason: `Action=${action || "none"}` };
   }
+
+  const pos = executionRead?.position || executionRead?.raw_position || {};
+  const collateral = String(pos.totalCollateralETH || "0");
+  const debt = String(pos.totalDebtETH || "0");
+  if (collateral === "0" && debt === "0" && action !== "invest_candidate") {
+    return {
+      status: "none",
+      reason: "Empty position (zero collateral, zero debt) — nothing to rebalance or de-risk",
+    };
+  }
+
   if (policy.require_human_approval || !policy.auto_execute) {
     return {
       status: "proposed",
@@ -98,6 +110,7 @@ async function runOrchestrator({
   enableExternalContext = true,
   enableExternalNews = true,
   enableHederaToolkit = true,
+  enableExecutionActor = false,
   onEvent,
 } = {}) {
   const cfg = getConfig();
@@ -118,6 +131,7 @@ async function runOrchestrator({
     juniorGate: null,
     strategy: null,
     executionGate: null,
+    executionActor: null,
     vaultScope: null,
     toolkit: null,
     attestation: null,
@@ -322,6 +336,7 @@ async function runOrchestrator({
           marketSummary: state.market,
           riskSummary: state.risk,
           externalContext: state.externalContext,
+          executionRead: state.executionRead,
         });
         return {
           outputs: out,
@@ -335,13 +350,78 @@ async function runOrchestrator({
   );
   state.strategy = strategyOutputs;
 
-  const executionGate = classifyExecutionIntent(state.strategy?.parsed, policy);
+  const executionGate = classifyExecutionIntent(state.strategy?.parsed, policy, state.executionRead);
   const gateOutputs = await emitStep("execution_gate", { policy }, {
     outputs: { ok: true, gate: executionGate },
     executionIntent: executionGate,
     toolCalls: [],
   });
   state.executionGate = gateOutputs;
+
+  const executionActorOutputs = await emitStep(
+    "execution_actor",
+    {
+      gate_status: executionGate.status,
+      enabled: enableExecutionActor,
+      strategy_action: state.strategy?.parsed?.recommended_action || null,
+    },
+    await (async () => {
+      if (!enableExecutionActor) {
+        return {
+          outputs: {
+            ok: false,
+            skipped: true,
+            reason: "Execution actor disabled — pass enableExecutionActor=true to enable",
+          },
+          toolCalls: [],
+          executionIntent: { status: "none", reason: "actor_disabled" },
+        };
+      }
+      if (executionGate.status !== "approved") {
+        return {
+          outputs: {
+            ok: false,
+            skipped: true,
+            reason: `Gate status is '${executionGate.status}' — execution requires 'approved'`,
+          },
+          toolCalls: [],
+          executionIntent: executionGate,
+        };
+      }
+      try {
+        const out = await runExecutionAgent({
+          accountId: state.accountId,
+          evmAddress: state.evmAddress,
+          policyId: policy.policy_id,
+          packId: pack.pack_id,
+          strategy: state.strategy?.parsed,
+          policy,
+          position: state.executionRead,
+        });
+        const intent = {
+          status: out.ok && out.tx_id ? "submitted" : out.skipped ? "none" : "failed",
+          tx_ref: out.tx_id || null,
+          verify_url: out.verify_url || null,
+          action_taken: out.action_taken || null,
+        };
+        return {
+          outputs: out,
+          llmModel: out.model || null,
+          toolCalls: out.toolNames
+            ? out.toolNames.map((n) => ({ tool: `bonzo.${n}`, type: "execution" }))
+            : [],
+          executionIntent: intent,
+        };
+      } catch (e) {
+        return {
+          outputs: { ok: false, error: e.message },
+          toolCalls: [],
+          executionIntent: { status: "failed", reason: e.message },
+        };
+      }
+    })(),
+  );
+  state.executionActor = executionActorOutputs;
 
   const vaultScopeOutputs = await emitStep(
     "vault_scope_check",

@@ -1,6 +1,13 @@
 /**
- * Risk Agent — reads user_credit from Bonzo /dashboard when available.
- * Dashboard network must match the deployment the API indexes (see Bonzo docs).
+ * Risk Agent — reads user position from Bonzo /dashboard or on-chain LendingPool.
+ *
+ * Hybrid monitoring architecture (intentional):
+ *   - Market data (APY, reserves, utilization): from mainnet Data API (real market intelligence)
+ *   - Position data (collateral, debt, health): from testnet RPC (user's testnet account)
+ *   - Execution: on testnet (risk-free development/demo)
+ *
+ * When the Data API returns 404 for a testnet account, the on-chain RPC fallback
+ * is the expected path — not an error.
  */
 const bonzo = require("../integrations/bonzo-data-api");
 const { getUserAccountDataReadOnly } = require("../integrations/bonzo-evm-readonly");
@@ -59,7 +66,7 @@ async function runRiskAgent(accountId, evmAddress) {
           ok: true,
           source: "onchain_lending_pool",
           note:
-            "Bonzo dashboard unavailable for provided account/network; returned on-chain read-only position from LendingPool.",
+            "Hybrid mode: mainnet Data API for market intelligence, testnet RPC for position reads. This is the expected path.",
           evm_address: maybeEvm,
           health_factor: position.healthFactorDisplay,
           current_ltv: position.ltv,
@@ -77,7 +84,7 @@ async function runRiskAgent(accountId, evmAddress) {
       ok: false,
       reason: e.message,
       note:
-        "If ACCOUNT_ID is testnet but the Data API base is mainnet-only, dashboard may fail until a testnet-compatible base exists.",
+        "All position sources exhausted. Data API is mainnet-only (expected for hybrid monitoring). On-chain RPC may have timed out — check Hashio testnet status.",
       fallback_attempts: fallbackAttempts,
     };
   }

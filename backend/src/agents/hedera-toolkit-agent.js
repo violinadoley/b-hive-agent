@@ -1,6 +1,7 @@
 const { Client, AccountId, PrivateKey } = require("@hashgraph/sdk");
 const { HederaLangchainToolkit, AgentMode } = require("hedera-agent-kit");
 const { getConfig } = require("../config");
+const { bonzoPlugin } = require("@bonzofinancelabs/hak-bonzo-plugin");
 
 function buildHederaClient() {
   const cfg = getConfig();
@@ -31,7 +32,7 @@ async function runHederaToolkitAgentBootstrap() {
       client,
       configuration: {
         tools: [],
-        plugins: [],
+        plugins: [bonzoPlugin],
         context: { mode: AgentMode.AUTONOMOUS },
       },
     });

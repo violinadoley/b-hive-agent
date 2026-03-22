@@ -14,9 +14,13 @@ function formatHealthFactor(hf) {
   return hf.toString();
 }
 
+const RPC_TIMEOUT_MS = 15000;
+
 function getProvider() {
   const { hederaJsonRpcUrl, hederaChainId } = getConfig();
-  return new ethers.JsonRpcProvider(hederaJsonRpcUrl, hederaChainId);
+  const fetchReq = new ethers.FetchRequest(hederaJsonRpcUrl);
+  fetchReq.timeout = RPC_TIMEOUT_MS;
+  return new ethers.JsonRpcProvider(fetchReq, hederaChainId, { staticNetwork: true });
 }
 
 function getLendingPoolReadOnly() {
@@ -33,28 +37,41 @@ function getLendingPoolReadOnly() {
  * @param {string} evmAddress - 0x-prefixed EVM address (same as Mirror `evm_address` on testnet)
  */
 async function getUserAccountDataReadOnly(evmAddress) {
-  const pool = getLendingPoolReadOnly();
   const user = ethers.getAddress(String(evmAddress).trim());
-  const [
-    totalCollateralETH,
-    totalDebtETH,
-    availableBorrowsETH,
-    currentLiquidationThreshold,
-    ltv,
-    healthFactor,
-  ] = await pool.getUserAccountData(user);
 
-  return {
-    user,
-    lendingPool: pool.target,
-    totalCollateralETH: totalCollateralETH.toString(),
-    totalDebtETH: totalDebtETH.toString(),
-    availableBorrowsETH: availableBorrowsETH.toString(),
-    currentLiquidationThreshold: currentLiquidationThreshold.toString(),
-    ltv: ltv.toString(),
-    healthFactor: healthFactor.toString(),
-    healthFactorDisplay: formatHealthFactor(healthFactor),
-  };
+  async function attempt() {
+    const pool = getLendingPoolReadOnly();
+    const [
+      totalCollateralETH,
+      totalDebtETH,
+      availableBorrowsETH,
+      currentLiquidationThreshold,
+      ltv,
+      healthFactor,
+    ] = await pool.getUserAccountData(user);
+
+    return {
+      user,
+      lendingPool: pool.target,
+      totalCollateralETH: totalCollateralETH.toString(),
+      totalDebtETH: totalDebtETH.toString(),
+      availableBorrowsETH: availableBorrowsETH.toString(),
+      currentLiquidationThreshold: currentLiquidationThreshold.toString(),
+      ltv: ltv.toString(),
+      healthFactor: healthFactor.toString(),
+      healthFactorDisplay: formatHealthFactor(healthFactor),
+    };
+  }
+
+  try {
+    return await attempt();
+  } catch (e) {
+    const msg = e.message || String(e);
+    if (msg.includes("TIMEOUT") || msg.includes("timeout")) {
+      return await attempt();
+    }
+    throw e;
+  }
 }
 
 module.exports = {

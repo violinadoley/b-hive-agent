@@ -14,6 +14,7 @@ const { runExecutionReadAgent } = require("./agents/execution-read-agent");
 const { runBonzoToolAgentDemo } = require("./tools/bonzo-langchain-tools");
 const { pingQdrant, searchKnowledge } = require("./rag/qdrant-rag");
 const { pickBackend } = require("./rag/embed-provider");
+const { bonzoPlugin } = require("@bonzofinancelabs/hak-bonzo-plugin");
 
 function requireEnv(name, alt) {
   const v = process.env[name] || (alt && process.env[alt]);
@@ -51,7 +52,7 @@ function testAgentKitInstantiation(accountIdStr, privateKeyStr) {
       client,
       configuration: {
         tools: [],
-        plugins: [],
+        plugins: [bonzoPlugin],
         context: { mode: AgentMode.AUTONOMOUS },
       },
     });

@@ -11,6 +11,8 @@
  */
 const bonzo = require("../integrations/bonzo-data-api");
 const { getUserAccountDataReadOnly } = require("../integrations/bonzo-evm-readonly");
+const { getMirrorNodePosition } = require("../integrations/bonzo-mirror-position");
+const { getConfig } = require("../config");
 
 async function runRiskAgent(accountId, evmAddress) {
   if (!accountId) {
@@ -62,21 +64,43 @@ async function runRiskAgent(accountId, evmAddress) {
     if (maybeEvm.startsWith("0x")) {
       try {
         const position = await getUserAccountDataReadOnly(maybeEvm);
-        return {
-          ok: true,
-          source: "onchain_lending_pool",
-          note:
-            "Hybrid mode: mainnet Data API for market intelligence, testnet RPC for position reads. This is the expected path.",
-          evm_address: maybeEvm,
-          health_factor: position.healthFactorDisplay,
-          current_ltv: position.ltv,
-          liquidation_ltv: position.currentLiquidationThreshold,
-          total_debt_hbar_display: position.totalDebtETH,
-          total_collateral_hbar_display: position.totalCollateralETH,
-          raw_position: position,
-        };
+        const allZero =
+          position.totalCollateralETH === "0" &&
+          position.totalDebtETH === "0" &&
+          position.totalDebtETH === "0";
+
+        if (!allZero) {
+          return {
+            ok: true,
+            source: "onchain_lending_pool",
+            note:
+              "Hybrid mode: mainnet Data API for market intelligence, testnet RPC for position reads. This is the expected path.",
+            evm_address: maybeEvm,
+            health_factor: position.healthFactorDisplay,
+            current_ltv: position.ltv,
+            liquidation_ltv: position.currentLiquidationThreshold,
+            total_debt_hbar_display: position.totalDebtETH,
+            total_collateral_hbar_display: position.totalCollateralETH,
+            raw_position: position,
+          };
+        }
+
+        // eth_call returns all zeros on Hedera testnet due to HTS/EVM state split.
+        // Fall through to Mirror Node token balance fallback.
+        fallbackAttempts.push("onchain_lending_pool returned all zeros — HTS state not visible via eth_call");
       } catch (onchainErr) {
         fallbackAttempts.push(`onchainFallback failed: ${onchainErr.message}`);
+      }
+    }
+
+    // Mirror Node fallback: read HTS token balances for known Bonzo debt/collateral tokens.
+    const cfg = getConfig();
+    if (accountId && cfg.hederaMirrorRestBase) {
+      try {
+        const mirrorPosition = await getMirrorNodePosition(accountId, cfg.hederaMirrorRestBase);
+        return { ...mirrorPosition, evm_address: maybeEvm };
+      } catch (mirrorErr) {
+        fallbackAttempts.push(`mirrorNodeFallback failed: ${mirrorErr.message}`);
       }
     }
 

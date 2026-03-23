@@ -117,6 +117,7 @@ async function oneCycle() {
     enableStrategyReasoner: true,
     forceStrategyReasoner,
     enableHederaToolkit: true,
+    enableExecutionActor: true,
     onEvent: (event) => {
       const status = event.outputs?.skipped
         ? "SKIPPED"

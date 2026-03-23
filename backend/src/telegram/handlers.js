@@ -43,13 +43,32 @@ async function handlePositionQuery() {
 
   try {
     const result = await runExecutionReadAgent({ evmAddress });
-    if (!result.ok) return `Position read failed: ${result.reason}`;
-
-    const pos = result.position;
+    const pos = result.ok ? result.position : {};
     const collateral = pos.totalCollateralETH || "0";
     const debt = pos.totalDebtETH || "0";
 
-    if (collateral === "0" && debt === "0") {
+    // EVM returned real data — use it directly
+    if (collateral !== "0" || debt !== "0") {
+      return [
+        "📍 Your Bonzo Position",
+        "",
+        `Collateral:  ${collateral} HBAR-equiv`,
+        `Debt:        ${debt} HBAR-equiv`,
+        `Available:   ${pos.availableBorrowsETH || "0"} HBAR-equiv`,
+        `LTV:         ${pos.ltv || "0"}`,
+        `Liq. threshold: ${pos.currentLiquidationThreshold || "0"}`,
+        `Health factor:  ${pos.healthFactorDisplay || "unknown"}`,
+      ].join("\n");
+    }
+
+    // EVM returned zeros — fall back to hybrid aToken balanceOf + Mirror Node
+    const risk = await runRiskAgent(cfg.accountId, evmAddress);
+    if (!risk.ok) return `Position read failed: ${risk.reason}`;
+
+    const c = risk.total_collateral_hbar_display || "0";
+    const d = risk.total_debt_hbar_display || "0";
+
+    if ((c === "0" || c === "unknown") && d === "0") {
       return [
         "📍 Your position is empty",
         "",
@@ -61,12 +80,10 @@ async function handlePositionQuery() {
     return [
       "📍 Your Bonzo Position",
       "",
-      `Collateral:  ${collateral} HBAR-equiv`,
-      `Debt:        ${debt} HBAR-equiv`,
-      `Available:   ${pos.availableBorrowsETH || "0"} HBAR-equiv`,
-      `LTV:         ${pos.ltv || "0"}`,
-      `Liq. threshold: ${pos.currentLiquidationThreshold || "0"}`,
-      `Health factor:  ${pos.healthFactorDisplay || "unknown"}`,
+      `Collateral:  ${c}`,
+      `Debt:        ${d}`,
+      `Health factor:  ${risk.health_factor || "unknown"}`,
+      `Source: ${risk.source || "hybrid"}`,
     ].join("\n");
   } catch (e) {
     return `Position query failed: ${e.message}`;

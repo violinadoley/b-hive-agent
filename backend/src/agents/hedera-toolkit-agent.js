@@ -1,4 +1,4 @@
-const { Client, AccountId, PrivateKey } = require("@hashgraph/sdk");
+const { Client, AccountId, PrivateKey, AccountBalanceQuery } = require("@hashgraph/sdk");
 const { HederaLangchainToolkit, AgentMode } = require("hedera-agent-kit");
 const { getConfig } = require("../config");
 const { bonzoPlugin } = require("@bonzofinancelabs/hak-bonzo-plugin");
@@ -28,6 +28,7 @@ function buildHederaClient() {
 async function runHederaToolkitAgentBootstrap() {
   const client = buildHederaClient();
   try {
+    // Initialize toolkit with bonzoPlugin — provides Bonzo LangChain tools
     const toolkit = new HederaLangchainToolkit({
       client,
       configuration: {
@@ -37,10 +38,33 @@ async function runHederaToolkitAgentBootstrap() {
       },
     });
     const tools = toolkit.getTools();
+
+    // Query account balance natively via Hedera SDK (authoritative — not EVM/Mirror)
+    const accountId = process.env.ACCOUNT_ID;
+    const balanceResult = await new AccountBalanceQuery()
+      .setAccountId(AccountId.fromString(accountId))
+      .execute(client);
+
+    const hbarBalance = balanceResult.hbars.toBigNumber().toFixed(4);
+
+    // Summarise token balances (non-zero only)
+    const tokenBalances = [];
+    if (balanceResult.tokens) {
+      for (const [tokenId, amount] of balanceResult.tokens) {
+        const amt = amount.toNumber ? amount.toNumber() : Number(amount);
+        if (amt > 0) {
+          tokenBalances.push({ token_id: tokenId.toString(), balance: amt });
+        }
+      }
+    }
+
     return {
       ok: true,
-      toolCount: tools.length,
-      toolNames: tools.map((t) => t.name || "unknown"),
+      account_id: accountId,
+      hbar_balance: hbarBalance,
+      token_balances: tokenBalances,
+      toolkit_tools: tools.map((t) => t.name || "unknown"),
+      tool_count: tools.length,
     };
   } finally {
     client.close();

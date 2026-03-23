@@ -83,6 +83,7 @@ async function handlePositionQuery() {
       `Collateral:  ${c}`,
       `Debt:        ${d}`,
       `Health factor:  ${risk.health_factor || "unknown"}`,
+      `Source: ${risk.source || "hybrid"}`,
     ].join("\n");
   } catch (e) {
     return `Position query failed: ${e.message}`;

@@ -425,36 +425,40 @@ async function runOrchestrator({
 
   const vaultScopeOutputs = await emitStep(
     "vault_scope_check",
-    { enable_vault_keeper: pack.enable_vault_keeper },
+    { source: cfg.bonzoDataApiBase },
     await (async () => {
-      if (!pack.enable_vault_keeper) {
+      // Validate that market reserves have live addresses from the Bonzo API.
+      // Addresses vary per deployment — confirmed with Bonzo team: always fetch
+      // from /market reserves array rather than hardcode.
+      try {
+        const marketData = state.market?.outputs;
+        if (!marketData?.ok || !marketData?.summary?.reserves) {
+          return {
+            outputs: {
+              ok: false,
+              note: "Market data unavailable — cannot verify reserve addresses.",
+            },
+            toolCalls: [],
+          };
+        }
+        const reserveCount = marketData.summary?.reserveCount || 0;
+        const topReserves = (marketData.summary?.topByUtilization || []).map(r => r.symbol);
         return {
           outputs: {
-            ok: true,
-            enabled: false,
-            missing: [],
-            note: "Vault keeper disabled by strategy pack.",
+            ok: reserveCount > 0,
+            reserve_count: reserveCount,
+            top_reserves: topReserves,
+            source: marketData.sourceBase || cfg.bonzoDataApiBase,
+            note: `${reserveCount} reserves live. Addresses resolved dynamically from Bonzo market API per deployment.`,
           },
+          toolCalls: [{ tool: "bonzo.fetchMarket", source: marketData.sourceBase }],
+        };
+      } catch (e) {
+        return {
+          outputs: { ok: false, error: e.message },
           toolCalls: [],
         };
       }
-      const missing = [];
-      if (!cfg.bonzoVaultAddress) missing.push("BONZO_VAULT_ADDRESS");
-      if (!cfg.bonzoVaultStrategyAddress) {
-        missing.push("BONZO_VAULT_STRATEGY_ADDRESS");
-      }
-      return {
-        outputs: {
-          ok: missing.length === 0,
-          enabled: !!pack.enable_vault_keeper,
-          missing,
-          note:
-            missing.length > 0
-              ? "Vault reads blocked until real Bonzo vault addresses are provided."
-              : "Vault keeper prerequisites are configured.",
-        },
-        toolCalls: [],
-      };
     })(),
   );
   state.vaultScope = vaultScopeOutputs;

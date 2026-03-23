@@ -1,26 +1,129 @@
 services:
   - type: web
     name: b-hive-api
-    runtime: node
-    rootDir: backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     plan: free
-    buildCommand: npm ci
-    startCommand: npm run api:start
     autoDeploy: true
     envVars:
-      - key: NODE_VERSION
-        value: 22
+      - key: PORT
+        value: 4000
       - key: API_PORT
         value: 4000
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ACCOUNT_ID
+        sync: false
+      - key: ECDSA_PRIVATE_KEY
+        sync: false
+      - key: ECDSA_EVM_ADDRESS
+        sync: false
+      - key: BONZO_DATA_API_BASE
+        value: https://mainnet-data-staging.bonzo.finance
+      - key: BONZO_DATA_API_FALLBACK
+        value: https://data.bonzo.finance
+      - key: HEDERA_MIRROR_REST_BASE
+        value: https://testnet.mirrornode.hedera.com/api/v1
+      - key: HEDERA_JSON_RPC_URL
+        value: https://testnet.hashio.io/api
+      - key: HEDERA_CHAIN_ID
+        value: 296
+      - key: BONZO_LENDING_POOL_ADDRESS
+        value: "0xf67DBe9bD1B331cA379c44b5562EAa1CE831EbC2"
+      - key: HCS_TOPIC_ID
+        sync: false
+      - key: MIRROR_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: DECISION_LOG_PATH
+        value: data/decision-events.jsonl
+      - key: MONITOR_INTERVAL_SECONDS
+        value: 900
+      - key: EXTERNAL_CONTEXT_EVERY_N_RUNS
+        value: 3
+      - key: FORCE_STRATEGY_EVERY_N_RUNS
+        value: 12
+      - key: MAX_RUNS_PER_DAY
+        value: 96
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GNEWS_API_KEY
+        sync: false
+      - key: GNEWS_BASE_URL
+        value: https://gnews.io/api/v4
+      - key: DEFILLAMA_BASE_URL
+        value: https://api.llama.fi
+      - key: FEAR_GREED_API_BASE
+        value: https://api.alternative.me
 
   - type: worker
     name: b-hive-monitor
-    runtime: node
-    rootDir: backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     plan: free
-    buildCommand: npm ci
-    startCommand: npm run monitor:start
     autoDeploy: true
+    startCommand: node scripts/monitor-loop.js
     envVars:
-      - key: NODE_VERSION
-        value: 22
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ACCOUNT_ID
+        sync: false
+      - key: ECDSA_PRIVATE_KEY
+        sync: false
+      - key: ECDSA_EVM_ADDRESS
+        sync: false
+      - key: BONZO_DATA_API_BASE
+        value: https://mainnet-data-staging.bonzo.finance
+      - key: BONZO_DATA_API_FALLBACK
+        value: https://data.bonzo.finance
+      - key: HEDERA_MIRROR_REST_BASE
+        value: https://testnet.mirrornode.hedera.com/api/v1
+      - key: HEDERA_JSON_RPC_URL
+        value: https://testnet.hashio.io/api
+      - key: HEDERA_CHAIN_ID
+        value: 296
+      - key: BONZO_LENDING_POOL_ADDRESS
+        value: "0xf67DBe9bD1B331cA379c44b5562EAa1CE831EbC2"
+      - key: HCS_TOPIC_ID
+        sync: false
+      - key: MIRROR_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: DECISION_LOG_PATH
+        value: data/decision-events.jsonl
+      - key: MONITOR_INTERVAL_SECONDS
+        value: 900
+      - key: EXTERNAL_CONTEXT_EVERY_N_RUNS
+        value: 3
+      - key: FORCE_STRATEGY_EVERY_N_RUNS
+        value: 12
+      - key: MAX_RUNS_PER_DAY
+        value: 96
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GNEWS_API_KEY
+        sync: false
+      - key: GNEWS_BASE_URL
+        value: https://gnews.io/api/v4
+      - key: DEFILLAMA_BASE_URL
+        value: https://api.llama.fi
+      - key: FEAR_GREED_API_BASE
+        value: https://api.alternative.me
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_ALLOWED_CHAT_IDS
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false

@@ -93,14 +93,19 @@ async function runRiskAgent(accountId, evmAddress) {
       }
     }
 
-    // Mirror Node fallback: read HTS token balances for known Bonzo debt/collateral tokens.
+    // Hybrid fallback: aHBAR balanceOf via EVM + HTS debt via Mirror Node.
     const cfg = getConfig();
-    if (accountId && cfg.hederaMirrorRestBase) {
+    if (accountId && maybeEvm && cfg.hederaMirrorRestBase) {
       try {
-        const mirrorPosition = await getMirrorNodePosition(accountId, cfg.hederaMirrorRestBase);
+        const mirrorPosition = await getMirrorNodePosition(
+          accountId,
+          maybeEvm,
+          cfg.hederaMirrorRestBase,
+          cfg.hederaJsonRpcUrl,
+        );
         return { ...mirrorPosition, evm_address: maybeEvm };
       } catch (mirrorErr) {
-        fallbackAttempts.push(`mirrorNodeFallback failed: ${mirrorErr.message}`);
+        fallbackAttempts.push(`hybridFallback failed: ${mirrorErr.message}`);
       }
     }
 

@@ -92,9 +92,9 @@ function formatPositionMessage(events) {
   }
 
   return [
-    `Collateral: ${collateral} ETH-equiv`,
-    `Debt: ${debt} ETH-equiv`,
-    `Available borrows: ${available} ETH-equiv`,
+    `Collateral: ${collateral}`,
+    `Debt: ${debt}`,
+    `Available borrows: ${available}`,
     `Health factor: ${hf}`,
   ].join("\n");
 }

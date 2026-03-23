@@ -39,14 +39,16 @@ async function runExecutionReadAgent(params) {
         // Normalize to the shape the execution pipeline expects
         const collateralRaw = mirror.collateral_raw || "0";
         const debtRaw = mirror.debt_tokens?.[0]?.raw?.toString() || "0";
+        const collateralHbar = (Number(collateralRaw) / 1e8).toFixed(4);
+        const debtHbarx = (Number(debtRaw) / 1e8).toFixed(8);
         return {
           ok: true,
           position: {
-            totalCollateralETH: collateralRaw,
-            totalDebtETH: debtRaw,
+            totalCollateralETH: `${collateralHbar} HBAR`,
+            totalDebtETH: `${debtHbarx} HBARX`,
             availableBorrowsETH: "0",
-            currentLiquidationThreshold: "6798",
-            ltv: "6272",
+            currentLiquidationThreshold: "67.98%",
+            ltv: "62.72%",
             healthFactor: mirror.health_factor || "unknown",
             healthFactorDisplay: mirror.health_factor || "unknown",
             source: mirror.source,

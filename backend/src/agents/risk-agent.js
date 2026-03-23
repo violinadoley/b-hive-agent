@@ -102,6 +102,7 @@ async function runRiskAgent(accountId, evmAddress) {
           maybeEvm,
           cfg.hederaMirrorRestBase,
           cfg.hederaJsonRpcUrl,
+          cfg.bonzoDataApiBase,
         );
         return { ...mirrorPosition, evm_address: maybeEvm };
       } catch (mirrorErr) {

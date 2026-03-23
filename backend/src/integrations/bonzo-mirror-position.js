@@ -20,9 +20,15 @@ const AHBAR_CONTRACT = "0x24f361363fccdf89ca015809f0b1a45a0ad06c05";
 const AHBAR_DECIMALS = 8;
 
 // Known Bonzo testnet HTS debt tokens (Mirror Node readable)
+// Maps testnet HTS token_id → { symbol, decimals }
 const DEBT_TOKENS = {
   "0.0.2231533": { symbol: "HBARX", decimals: 8 },
 };
+
+// Market data symbol → collateral params (from Bonzo mainnet API, prices are real)
+// WHBAR is the collateral asset; HBARX is the debt asset
+const COLLATERAL_SYMBOL = "WHBAR";
+const DEBT_SYMBOL = "HBARX";
 
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
@@ -71,12 +77,13 @@ function evmCall(rpcUrl, to, data) {
 
 /**
  * Read user's Bonzo testnet position using EVM balanceOf + Mirror Node.
- * @param {string} accountId  Hedera account e.g. "0.0.8310571"
- * @param {string} evmAddress ECDSA EVM address e.g. "0x2b245..."
- * @param {string} mirrorBase Mirror Node base URL
- * @param {string} rpcUrl     Hedera JSON-RPC URL
+ * @param {string} accountId    Hedera account e.g. "0.0.8310571"
+ * @param {string} evmAddress   ECDSA EVM address e.g. "0x2b245..."
+ * @param {string} mirrorBase   Mirror Node base URL
+ * @param {string} rpcUrl       Hedera JSON-RPC URL
+ * @param {string} bonzoApiBase Bonzo Data API base URL for prices
  */
-async function getMirrorNodePosition(accountId, evmAddress, mirrorBase, rpcUrl) {
+async function getMirrorNodePosition(accountId, evmAddress, mirrorBase, rpcUrl, bonzoApiBase) {
   const errors = [];
 
   // --- Collateral: balanceOf(ECDSA) on aHBAR contract ---
@@ -116,11 +123,43 @@ async function getMirrorNodePosition(accountId, evmAddress, mirrorBase, rpcUrl) 
 
   const hasPosition = collateralRaw > 0n || debtTokens.length > 0;
 
+  // --- Health Factor: compute from Bonzo market prices ---
+  let healthFactorDisplay = hasPosition ? "unavailable" : "∞ (no position)";
+  try {
+    if (bonzoApiBase && collateralRaw > 0n && debtTokens.length > 0) {
+      const market = await fetchJson(`${bonzoApiBase}/market`);
+      const reserves = market.reserves || [];
+
+      const collateralReserve = reserves.find((r) => r.symbol === COLLATERAL_SYMBOL);
+      const debtReserve = reserves.find((r) => r.symbol === DEBT_SYMBOL);
+
+      if (collateralReserve?.price_usd_display && debtReserve?.price_usd_display) {
+        const collateralHbar = Number(collateralRaw) / Math.pow(10, AHBAR_DECIMALS);
+        const collateralUsd = collateralHbar * Number(collateralReserve.price_usd_display);
+        const liqThreshold = Number(collateralReserve.liquidation_threshold || 0.6798);
+
+        let totalDebtUsd = 0;
+        for (const t of debtTokens) {
+          const reserve = reserves.find((r) => r.symbol === t.symbol);
+          const price = reserve?.price_usd_display ? Number(reserve.price_usd_display) : 0;
+          totalDebtUsd += Number(t.balance) * price;
+        }
+
+        if (totalDebtUsd > 0) {
+          const hf = (collateralUsd * liqThreshold) / totalDebtUsd;
+          healthFactorDisplay = hf.toFixed(2);
+        }
+      }
+    }
+  } catch (e) {
+    errors.push(`HF calculation failed: ${e.message}`);
+  }
+
   return {
     ok: true,
     source: "evm_atoken_balanceof + mirror_node_hts",
-    note: "Collateral via aHBAR balanceOf (EVM). Debt via HTS Mirror Node. Health factor requires price oracle — use Bonzo UI for full HF.",
-    health_factor: hasPosition ? "see_bonzo_ui" : "MAX_UINT256 (no position)",
+    note: "Collateral via aHBAR balanceOf (EVM). Debt via HTS Mirror Node. HF computed from Bonzo market prices.",
+    health_factor: healthFactorDisplay,
     total_collateral_hbar_display: collateralDisplay,
     total_debt_hbar_display: debtDisplay,
     debt_tokens: debtTokens,

@@ -8,4 +8,5 @@ FROM node:22-slim
 WORKDIR /app
 COPY --from=builder /app /app
 RUN mkdir -p /app/data
-CMD ["node", "scripts/monitor-loop.js"]
+EXPOSE 10000
+CMD ["node", "scripts/render-monitor-web.js"]

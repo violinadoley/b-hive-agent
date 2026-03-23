@@ -7,10 +7,7 @@ services:
     plan: free
     autoDeploy: true
     envVars:
-      - key: PORT
-        value: 4000
-      - key: API_PORT
-        value: 4000
+      # PORT is set by Render — server.js listens on process.env.PORT
       - key: GROQ_API_KEY
         sync: false
       - key: ACCOUNT_ID
@@ -62,7 +59,9 @@ services:
       - key: FEAR_GREED_API_BASE
         value: https://api.alternative.me
 
-  - type: worker
+  # Free tier: Background Workers are NOT available. Use a second Web Service
+  # that binds $PORT (see scripts/render-monitor-web.js).
+  - type: web
     name: b-hive-monitor
     runtime: docker
     dockerfilePath: ./backend/Dockerfile.monitor

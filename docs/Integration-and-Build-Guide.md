@@ -320,7 +320,16 @@ Not required for MVP **strategy packs** in `Plan.md`.
 
 ---
 
-## 14. Definition of “integrated”
+## 14. Render.com (free tier)
+
+- **Background Workers are not available on the free plan.** The blueprint uses **two Web Services**: `b-hive-api` (HTTP API) and `b-hive-monitor` (monitor + Telegram). The monitor image runs `scripts/render-monitor-web.js`, which binds **`process.env.PORT`** for Render health checks and then starts the usual `monitor-loop.js`.
+- Do **not** set `PORT` manually for services unless you know you need to; Render injects `PORT`.
+- **Two free web services** may both spin down when idle; the monitor service should wake on traffic to `/health`, but the **Telegram long-polling process** keeps the monitor container busy—verify behavior on your plan.
+- If blueprint apply failed earlier with “worker not available”, delete the stuck **worker** service in the dashboard (if any), push this repo’s `render.yaml`, and **sync** the blueprint again.
+
+---
+
+## 15. Definition of “integrated”
 
 An integration is **done** when:
 

@@ -17,9 +17,9 @@ services:
       - key: ECDSA_EVM_ADDRESS
         sync: false
       - key: BONZO_DATA_API_BASE
-        value: https://data.bonzo.finance
-      - key: BONZO_DATA_API_FALLBACK
         value: https://mainnet-data-staging.bonzo.finance
+      - key: BONZO_DATA_API_FALLBACK
+        value: https://data.bonzo.finance
       - key: HEDERA_MIRROR_REST_BASE
         value: https://testnet.mirrornode.hedera.com/api/v1
       - key: HEDERA_JSON_RPC_URL
@@ -78,9 +78,9 @@ services:
       - key: ECDSA_EVM_ADDRESS
         sync: false
       - key: BONZO_DATA_API_BASE
-        value: https://data.bonzo.finance
-      - key: BONZO_DATA_API_FALLBACK
         value: https://mainnet-data-staging.bonzo.finance
+      - key: BONZO_DATA_API_FALLBACK
+        value: https://data.bonzo.finance
       - key: HEDERA_MIRROR_REST_BASE
         value: https://testnet.mirrornode.hedera.com/api/v1
       - key: HEDERA_JSON_RPC_URL

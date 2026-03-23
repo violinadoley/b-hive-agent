@@ -5,6 +5,12 @@ const { getLogPath } = require("../orchestration/decision-store");
 
 const ALLOWED_IDS_PATH = path.join(__dirname, "..", "..", "data", "telegram-allowed-ids.json");
 
+/** When true, any Telegram user can use commands and the router (demo / public bot). */
+function isOpenAccess() {
+  const v = String(process.env.TELEGRAM_ALLOW_ALL || "").toLowerCase().trim();
+  return v === "1" || v === "true" || v === "yes";
+}
+
 function loadAllowedChatIds() {
   const envIds = (process.env.TELEGRAM_ALLOWED_CHAT_IDS || "")
     .split(",")
@@ -33,6 +39,7 @@ function saveAllowedChatId(chatId) {
 }
 
 function isAuthorized(chatId) {
+  if (isOpenAccess()) return true;
   const allowed = loadAllowedChatIds();
   return allowed.size === 0 || allowed.has(String(chatId));
 }
@@ -141,6 +148,9 @@ function createBot({ onRunRequested } = {}) {
 
   const bot = new TelegramBot(token, { polling: true });
   console.log("[telegram] bot started in long-polling mode");
+  if (isOpenAccess()) {
+    console.log("[telegram] TELEGRAM_ALLOW_ALL is set — all chats may use the bot");
+  }
 
   bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;

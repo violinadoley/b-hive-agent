@@ -122,6 +122,8 @@ services:
         value: https://api.alternative.me
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+      - key: TELEGRAM_ALLOW_ALL
+        value: "true"
       - key: TELEGRAM_ALLOWED_CHAT_IDS
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET

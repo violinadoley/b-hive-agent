@@ -17,9 +17,9 @@ services:
       - key: ECDSA_EVM_ADDRESS
         sync: false
       - key: BONZO_DATA_API_BASE
-        value: https://mainnet-data-staging.bonzo.finance
-      - key: BONZO_DATA_API_FALLBACK
         value: https://data.bonzo.finance
+      - key: BONZO_DATA_API_FALLBACK
+        value: https://mainnet-data-staging.bonzo.finance
       - key: HEDERA_MIRROR_REST_BASE
         value: https://testnet.mirrornode.hedera.com/api/v1
       - key: HEDERA_JSON_RPC_URL
@@ -43,9 +43,9 @@ services:
       - key: MONITOR_INTERVAL_SECONDS
         value: "900"
       - key: EXTERNAL_CONTEXT_EVERY_N_RUNS
-        value: "3"
+        value: "1"
       - key: FORCE_STRATEGY_EVERY_N_RUNS
-        value: "12"
+        value: "2"
       - key: MAX_RUNS_PER_DAY
         value: "96"
       - key: GEMINI_API_KEY
@@ -78,9 +78,9 @@ services:
       - key: ECDSA_EVM_ADDRESS
         sync: false
       - key: BONZO_DATA_API_BASE
-        value: https://mainnet-data-staging.bonzo.finance
-      - key: BONZO_DATA_API_FALLBACK
         value: https://data.bonzo.finance
+      - key: BONZO_DATA_API_FALLBACK
+        value: https://mainnet-data-staging.bonzo.finance
       - key: HEDERA_MIRROR_REST_BASE
         value: https://testnet.mirrornode.hedera.com/api/v1
       - key: HEDERA_JSON_RPC_URL
@@ -104,9 +104,9 @@ services:
       - key: MONITOR_INTERVAL_SECONDS
         value: "900"
       - key: EXTERNAL_CONTEXT_EVERY_N_RUNS
-        value: "3"
+        value: "1"
       - key: FORCE_STRATEGY_EVERY_N_RUNS
-        value: "12"
+        value: "2"
       - key: MAX_RUNS_PER_DAY
         value: "96"
       - key: GEMINI_API_KEY

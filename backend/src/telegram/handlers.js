@@ -16,15 +16,14 @@ async function handleMarketQuery() {
     const reserves = summary.topByUtilization || [];
 
     const lines = [
-      `Bonzo Market (${summary.reserveCount} reserves)`,
-      `Source: ${stateView.sourceBase}`,
+      `📊 Bonzo Market — ${summary.reserveCount} reserves`,
       "",
       "Top pools by utilization:",
     ];
 
     for (const r of reserves) {
       lines.push(
-        `  ${r.symbol}: util=${(r.utilization_rate * 100).toFixed(1)}% supply_apy=${(r.supply_apy * 100).toFixed(2)}% borrow_apy=${(r.variable_borrow_apy * 100).toFixed(2)}%`,
+        `  ${r.symbol}  util: ${Number(r.utilization_rate).toFixed(1)}%  supply: ${(r.supply_apy * 100).toFixed(2)}%  borrow: ${(r.variable_borrow_apy * 100).toFixed(2)}%`,
       );
     }
 
@@ -52,22 +51,22 @@ async function handlePositionQuery() {
 
     if (collateral === "0" && debt === "0") {
       return [
-        "Your position is EMPTY.",
+        "📍 Your position is empty",
         "",
         "No collateral deposited, no debt.",
-        "Use /run or ask about market opportunities to explore investing.",
+        "Ask about market opportunities or use /run for a full analysis.",
       ].join("\n");
     }
 
     return [
-      "Your Bonzo Position:",
+      "📍 Your Bonzo Position",
       "",
-      `Collateral: ${collateral} ETH-equiv`,
-      `Debt: ${debt} ETH-equiv`,
-      `Available borrows: ${pos.availableBorrowsETH || "0"} ETH-equiv`,
-      `LTV: ${pos.ltv || "0"}`,
-      `Liquidation threshold: ${pos.currentLiquidationThreshold || "0"}`,
-      `Health factor: ${pos.healthFactorDisplay || "unknown"}`,
+      `Collateral:  ${collateral} HBAR-equiv`,
+      `Debt:        ${debt} HBAR-equiv`,
+      `Available:   ${pos.availableBorrowsETH || "0"} HBAR-equiv`,
+      `LTV:         ${pos.ltv || "0"}`,
+      `Liq. threshold: ${pos.currentLiquidationThreshold || "0"}`,
+      `Health factor:  ${pos.healthFactorDisplay || "unknown"}`,
     ].join("\n");
   } catch (e) {
     return `Position query failed: ${e.message}`;
@@ -85,26 +84,29 @@ async function handleRiskQuery() {
     }
 
     const hf = risk.health_factor;
+    let riskEmoji = "✅";
     let riskLevel = "Safe";
     if (hf && !String(hf).includes("MAX_UINT256")) {
       const hfNum = Number(hf);
-      if (hfNum < 1.1) riskLevel = "IMMINENT LIQUIDATION";
-      else if (hfNum < 1.2) riskLevel = "CRITICAL";
-      else if (hfNum < 1.5) riskLevel = "Elevated";
+      if (hfNum < 1.1) { riskLevel = "IMMINENT LIQUIDATION"; riskEmoji = "🚨"; }
+      else if (hfNum < 1.2) { riskLevel = "CRITICAL"; riskEmoji = "🔴"; }
+      else if (hfNum < 1.5) { riskLevel = "Elevated"; riskEmoji = "🟡"; }
     }
 
+    const hfDisplay = String(hf || "N/A").includes("MAX_UINT256") ? "∞ (no debt)" : (hf || "N/A");
+
     const lines = [
-      "Risk Assessment:",
+      "🔍 Risk Assessment",
       "",
-      `Health factor: ${hf || "N/A"}`,
-      `Risk level: ${riskLevel}`,
-      `Current LTV: ${risk.current_ltv || "N/A"}`,
-      `Liquidation LTV: ${risk.liquidation_ltv || "N/A"}`,
-      `Collateral: ${risk.total_collateral_hbar_display || "0"}`,
-      `Debt: ${risk.total_debt_hbar_display || "0"}`,
+      `Health factor: ${hfDisplay}`,
+      `Risk level:    ${riskEmoji} ${riskLevel}`,
+      `Current LTV:   ${risk.current_ltv || "0"}`,
+      `Liq. LTV:      ${risk.liquidation_ltv || "0"}`,
+      `Collateral:    ${risk.total_collateral_hbar_display || "0"}`,
+      `Debt:          ${risk.total_debt_hbar_display || "0"}`,
     ];
 
-    if (risk.source) lines.push(`Source: ${risk.source}`);
+    if (risk.source) lines.push("", `Source: ${risk.source}`);
     return lines.join("\n");
   } catch (e) {
     return `Risk query failed: ${e.message}`;
@@ -121,11 +123,13 @@ async function handleSentimentQuery() {
 
     const lines = [];
 
+    lines.push("🌡️ Market Sentiment", "");
+
     if (fearResult.status === "fulfilled") {
       const fg = fearResult.value;
-      lines.push(
-        `Fear & Greed Index: ${fg.value} (${fg.value_classification})`,
-      );
+      const val = Number(fg.value);
+      const fgEmoji = val <= 25 ? "😱" : val <= 45 ? "😟" : val <= 55 ? "😐" : val <= 75 ? "😊" : "🤑";
+      lines.push(`Fear & Greed: ${fgEmoji} ${fg.value} — ${fg.value_classification}`);
     } else {
       lines.push("Fear & Greed: unavailable");
     }
@@ -144,7 +148,7 @@ async function handleSentimentQuery() {
     if (newsResult.status === "fulfilled" && newsResult.value.headlines?.length) {
       lines.push("Latest headlines:");
       for (const h of newsResult.value.headlines) {
-        lines.push(`  - ${h.title} (${h.source || ""})`);
+        lines.push(`  • ${h.title} (${h.source || ""})`);
       }
     }
 

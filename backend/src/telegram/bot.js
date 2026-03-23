@@ -255,7 +255,18 @@ function createBot({ onRunRequested } = {}) {
     try {
       const intent = await classifyIntent(text);
       console.log(`[router] "${text.slice(0, 50)}" → ${intent}`);
-      bot.sendMessage(msg.chat.id, `[${intent}] Processing...`);
+      const loadingMessages = {
+        market_query: "📊 Fetching market data...",
+        position_query: "📍 Reading your position...",
+        risk_query: "🔍 Assessing risk...",
+        sentiment_query: "🌡️ Checking market sentiment...",
+        strategy_query: "🧠 Analyzing strategy...",
+        full_run: "⚙️ Running full pipeline cycle...",
+        system_status: "💡 Checking system status...",
+      };
+      if (loadingMessages[intent]) {
+        bot.sendMessage(msg.chat.id, loadingMessages[intent]);
+      }
       const response = await dispatchIntent(intent, text, { onRunRequested });
       bot.sendMessage(msg.chat.id, response);
     } catch (e) {

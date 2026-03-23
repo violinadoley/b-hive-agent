@@ -100,7 +100,8 @@ function createEvent({
 async function runOrchestrator({
   accountId,
   evmAddress,
-  policy = defaultPolicy(),
+  policy: policyArg,
+  policyOverride,
   pack = defaultPack(),
   enableStrategyReasoner = true,
   forceStrategyReasoner = false,
@@ -113,6 +114,7 @@ async function runOrchestrator({
   enableExecutionActor = false,
   onEvent,
 } = {}) {
+  const policy = { ...defaultPolicy(), ...(policyArg || {}), ...(policyOverride || {}) };
   const cfg = getConfig();
   const runId = crypto.randomUUID();
   let stepIndex = 0;

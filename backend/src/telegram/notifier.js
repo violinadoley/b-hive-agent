@@ -9,6 +9,9 @@ function createNotifier(bot) {
     };
   }
 
+  // Track latest strategy recommendation so approval message can show what will execute
+  let latestStrategy = null;
+
   function getAllChatIds() {
     const ids = (process.env.TELEGRAM_ALLOWED_CHAT_IDS || "")
       .split(",")
@@ -49,6 +52,7 @@ function createNotifier(bot) {
     }
 
     if (agent === "strategy_reasoner" && outputs.ok && outputs.parsed) {
+      latestStrategy = outputs.parsed;
       const action = outputs.parsed.recommended_action;
       if (action === "invest_candidate" && outputs.parsed.investment_suggestion) {
         return { type: "investment_suggestion" };
@@ -60,7 +64,7 @@ function createNotifier(bot) {
     }
 
     if (agent === "execution_gate" && outputs.gate?.status === "proposed") {
-      return { type: "execution_proposed" };
+      return { type: "execution_proposed", runId: event.run_id };
     }
 
     if (agent === "execution_actor" && outputs.executed && outputs.tx_id) {
@@ -114,16 +118,33 @@ function createNotifier(bot) {
     return lines.join("\n");
   }
 
-  function formatExecutionProposed(event) {
-    return [
-      "Execution Proposed",
+  function sendExecutionProposed(event) {
+    const action = latestStrategy?.recommended_action || "unknown";
+    const summary = latestStrategy?.summary || "No summary available.";
+    const riskBand = latestStrategy?.risk_band || "";
+    const runId = event.run_id;
+
+    const text = [
+      "⚡ Execution Proposed",
       "",
-      `Status: ${event.outputs.gate?.status}`,
-      `Reason: ${event.outputs.gate?.reason || "Policy requires human approval"}`,
+      `Action: ${action}`,
+      riskBand ? `Risk band: ${riskBand}` : "",
+      `Summary: ${summary}`,
       "",
-      "The pipeline has identified an action that requires your approval.",
-      "Auto-execution is currently disabled by policy.",
-    ].join("\n");
+      "Approve to execute on-chain, or reject to skip.",
+    ].filter(Boolean).join("\n");
+
+    const chatIds = getAllChatIds();
+    for (const chatId of chatIds) {
+      bot.sendMessage(chatId, `[B-Hive] ${text}`, {
+        reply_markup: {
+          inline_keyboard: [[
+            { text: "✅ Approve", callback_data: `approve_exec:${runId}` },
+            { text: "❌ Reject",  callback_data: `reject_exec:${runId}` },
+          ]],
+        },
+      }).catch((e) => console.error(`[notifier] failed to send approval to ${chatId}: ${e.message}`));
+    }
   }
 
   function formatExecutionCompleted(event) {
@@ -154,8 +175,8 @@ function createNotifier(bot) {
         message = `De-risk Recommended (urgency: ${classification.urgency})\n\n${event.outputs.parsed?.summary || "Check /status for details."}`;
         break;
       case "execution_proposed":
-        message = formatExecutionProposed(event);
-        break;
+        sendExecutionProposed(event);
+        return; // sends its own message with inline buttons
       case "execution_completed":
         message = formatExecutionCompleted(event);
         break;

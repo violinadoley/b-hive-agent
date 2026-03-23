@@ -149,6 +149,36 @@ async function main() {
   let running = false;
   writeHeartbeat({ status: "booting" });
 
+  async function approveExecution(_runId) {
+    if (running) return { error: "A cycle is already running — try again shortly" };
+    running = true;
+    console.log("[monitor] user approved execution — running cycle with auto_execute=true");
+    try {
+      const s = loadState();
+      const enableExternalContext = s.runCounter % externalEvery === 0;
+      return await runOrchestrator({
+        enableExternalContext,
+        enableExternalNews: enableExternalContext,
+        enableStrategyReasoner: true,
+        forceStrategyReasoner: true,
+        enableHederaToolkit: true,
+        enableExecutionActor: true,
+        policyOverride: { auto_execute: true, require_human_approval: false },
+        onEvent: (event) => {
+          const status = event.outputs?.skipped ? "SKIPPED"
+            : event.outputs?.ok === false ? "FAILED" : "OK";
+          console.log(`[trace/approve] step=${event.step_index} agent=${event.agent} status=${status}`);
+          if (notifier) notifier.onPipelineEvent(event);
+        },
+      });
+    } catch (e) {
+      console.error(`[monitor] approved execution failed: ${e.message || e}`);
+      return { error: e.message };
+    } finally {
+      running = false;
+    }
+  }
+
   const bot = createBot({
     onRunRequested: async () => {
       if (running) return { error: "A cycle is already running" };
@@ -162,6 +192,7 @@ async function main() {
         running = false;
       }
     },
+    onApproveExecution: approveExecution,
   });
   notifier = require("../src/telegram/notifier").createNotifier(bot);
 

@@ -148,7 +148,7 @@ function formatStatusMessage(events) {
   return lines.join("\n");
 }
 
-function createBot({ onRunRequested } = {}) {
+function createBot({ onRunRequested, onApproveExecution } = {}) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
     console.log("[telegram] TELEGRAM_BOT_TOKEN not set — bot disabled");
@@ -272,6 +272,51 @@ function createBot({ onRunRequested } = {}) {
     } catch (e) {
       console.error(`[router] error: ${e.message}`);
       bot.sendMessage(msg.chat.id, `Something went wrong: ${e.message}`);
+    }
+  });
+
+  bot.on("callback_query", async (query) => {
+    const chatId = query.message?.chat?.id;
+    const data = query.data || "";
+    if (!chatId || !isAuthorized(chatId)) {
+      bot.answerCallbackQuery(query.id, { text: "Not authorized." });
+      return;
+    }
+
+    if (data.startsWith("approve_exec:")) {
+      const runId = data.split(":")[1];
+      bot.answerCallbackQuery(query.id, { text: "Approved! Executing..." });
+      bot.sendMessage(chatId, `Executing approved action (run ${runId.slice(0, 8)}...)...`);
+      if (typeof onApproveExecution !== "function") {
+        bot.sendMessage(chatId, "Execution handler not wired.");
+        return;
+      }
+      try {
+        const result = await onApproveExecution(runId);
+        if (result?.error) {
+          bot.sendMessage(chatId, `Execution failed: ${result.error}`);
+        } else if (result?.events) {
+          const actorEvent = result.events.find(e => e.agent === "execution_actor");
+          const out = actorEvent?.outputs || {};
+          if (out.tx_id) {
+            bot.sendMessage(chatId, [
+              "Transaction submitted!",
+              `Action: ${out.action_taken || "unknown"}`,
+              `TX: ${out.tx_id}`,
+              out.verify_url ? `Verify: ${out.verify_url}` : "",
+            ].filter(Boolean).join("\n"));
+          } else if (out.skipped) {
+            bot.sendMessage(chatId, `Execution skipped: ${out.reason || "strategy no longer actionable"}`);
+          } else {
+            bot.sendMessage(chatId, `Execution completed. Check /status for details.`);
+          }
+        }
+      } catch (e) {
+        bot.sendMessage(chatId, `Execution error: ${e.message}`);
+      }
+    } else if (data.startsWith("reject_exec:")) {
+      bot.answerCallbackQuery(query.id, { text: "Rejected." });
+      bot.sendMessage(chatId, "Execution rejected. Pipeline will continue monitoring.");
     }
   });
 

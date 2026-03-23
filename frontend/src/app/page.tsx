@@ -95,6 +95,10 @@ export default function Home() {
 
   useEffect(() => {
     let alive = true;
+    let es: EventSource | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryDelay = 2000;
+
     fetch(`${backendBase}/api/runs/latest`)
       .then((r) => r.json())
       .then((data: LatestRunResponse) => {
@@ -104,27 +108,39 @@ export default function Home() {
       })
       .catch(() => undefined);
 
-    const es = new EventSource(`${backendBase}/api/stream/events`);
-    es.addEventListener("open", () => {
-      setConnected(true);
-      setStreamErr("");
-    });
-    es.addEventListener("error", () => {
-      setConnected(false);
-      setStreamErr("stream disconnected");
-    });
-    es.addEventListener("decision_event", (msg) => {
-      const parsed = JSON.parse((msg as MessageEvent).data) as DecisionEvent;
-      setRunId(parsed.run_id);
-      setEvents((prev) => {
-        if (prev.length === 0 || prev[0].run_id !== parsed.run_id) return [parsed];
-        return [...prev, parsed];
+    function connect() {
+      if (!alive) return;
+      es = new EventSource(`${backendBase}/api/stream/events`);
+      es.addEventListener("open", () => {
+        setConnected(true);
+        setStreamErr("");
+        retryDelay = 2000;
       });
-    });
+      es.addEventListener("error", () => {
+        setConnected(false);
+        setStreamErr(`reconnecting in ${Math.round(retryDelay / 1000)}s…`);
+        es?.close();
+        retryTimer = setTimeout(() => {
+          retryDelay = Math.min(retryDelay * 2, 30000);
+          connect();
+        }, retryDelay);
+      });
+      es.addEventListener("decision_event", (msg) => {
+        const parsed = JSON.parse((msg as MessageEvent).data) as DecisionEvent;
+        setRunId(parsed.run_id);
+        setEvents((prev) => {
+          if (prev.length === 0 || prev[0].run_id !== parsed.run_id) return [parsed];
+          return [...prev, parsed];
+        });
+      });
+    }
+
+    connect();
 
     return () => {
       alive = false;
-      es.close();
+      if (retryTimer) clearTimeout(retryTimer);
+      es?.close();
     };
   }, [backendBase]);
 

@@ -97,16 +97,27 @@ async function getMirrorNodePosition(accountId, evmAddress, mirrorBase, rpcUrl, 
     errors.push(`Market API fetch failed: ${e.message}`);
   }
 
-  // --- Step 2: Build collateral map from reserves with atoken_address ---
-  // Each reserve with an atoken_address is a potential collateral position.
-  // WHBAR is the primary collateral on Hedera testnet.
-  const collateralReserves = reserves.filter(r => r.atoken_address && r.active);
+  // --- Step 2: Build candidate atoken list ---
+  // Primary: addresses from market API (correct for the configured network).
+  // Fallback: known testnet addresses when API returns mainnet addresses that
+  // don't exist on testnet RPC (hybrid monitoring architecture).
+  const TESTNET_FALLBACK_ATOKENS = [
+    { symbol: "WHBAR", atoken_address: "0x24f361363fccdf89ca015809f0b1a45a0ad06c05", decimals: 8, liquidation_threshold: 0.6798 },
+  ];
+  const TESTNET_FALLBACK_HTS = {
+    "0.0.2231533": { symbol: "HBARX", decimals: 8 },
+  };
+
+  const collateralReserves = reserves.filter(r => r.atoken_address && r.active !== false);
 
   // --- Step 3: Read collateral balances via EVM balanceOf on each aToken ---
   const padded = evmAddress.replace("0x", "").toLowerCase().padStart(64, "0");
   const collateralPositions = [];
 
-  for (const reserve of collateralReserves) {
+  // Try API-resolved addresses first, then testnet fallbacks
+  const atokenCandidates = collateralReserves.length > 0 ? collateralReserves : TESTNET_FALLBACK_ATOKENS;
+
+  for (const reserve of atokenCandidates) {
     try {
       const result = await evmCall(rpcUrl, reserve.atoken_address, `0x70a08231${padded}`);
       if (result.result && result.result !== "0x" && !result.error) {
@@ -142,13 +153,32 @@ async function getMirrorNodePosition(accountId, evmAddress, mirrorBase, rpcUrl, 
     errors.push(`Mirror Node token query failed: ${e.message}`);
   }
 
-  // Match user's HTS token holdings against reserve hts_addresses (debt tokens)
+  // Match user's HTS token holdings against reserve hts_addresses (debt tokens).
+  // Also check testnet fallback HTS IDs in case API returns mainnet addresses.
   const debtPositions = [];
-  for (const reserve of reserves) {
-    if (!reserve.hts_address) continue;
+  const allHtsReserves = reserves.length > 0
+    ? reserves.filter(r => r.hts_address)
+    : Object.entries(TESTNET_FALLBACK_HTS).map(([id, meta]) => ({
+        hts_address: id, symbol: meta.symbol, decimals: meta.decimals, price_usd_display: 0,
+      }));
 
-    // hts_address is already in "0.0.XXXXX" format in the Bonzo API
+  // Also always check testnet fallback HTS IDs in case position is on testnet
+  const fallbackHtsIds = Object.keys(TESTNET_FALLBACK_HTS);
+  const checkedIds = new Set();
+
+  const candidateReserves = [
+    ...allHtsReserves,
+    ...fallbackHtsIds
+      .filter(id => !allHtsReserves.some(r => r.hts_address === id))
+      .map(id => ({ hts_address: id, ...TESTNET_FALLBACK_HTS[id], price_usd_display: 0 })),
+  ];
+
+  for (const reserve of candidateReserves) {
+    if (!reserve.hts_address) continue;
     const htsId = reserve.hts_address;
+    if (checkedIds.has(htsId)) continue;
+    checkedIds.add(htsId);
+
     const balance = userHtsBalances[htsId];
     if (!balance || balance === 0) continue;
 

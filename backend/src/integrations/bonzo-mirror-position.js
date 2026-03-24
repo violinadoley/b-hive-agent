@@ -135,7 +135,7 @@ async function getMirrorNodePosition(accountId, evmAddress, mirrorBase, rpcUrl, 
           collateralPositions.push({
             symbol: reserve.symbol,
             atoken_address: reserve.atoken_address,
-            raw: rawBalance,
+            raw: rawBalance.toString(), // BigInt → string for JSON serialization
             balance: humanBalance.toFixed(decimals > 4 ? 4 : decimals),
             liquidation_threshold: Number(reserve.liquidation_threshold || 0),
             price_usd: Number(reserve.price_usd_display || 0),

@@ -101,12 +101,24 @@ async function getMirrorNodePosition(accountId, evmAddress, mirrorBase, rpcUrl, 
   // Primary: addresses from market API (correct for the configured network).
   // Fallback: known testnet addresses when API returns mainnet addresses that
   // don't exist on testnet RPC (hybrid monitoring architecture).
+  // Prices will be patched from API reserves by symbol after fetching
   const TESTNET_FALLBACK_ATOKENS = [
-    { symbol: "WHBAR", atoken_address: "0x24f361363fccdf89ca015809f0b1a45a0ad06c05", decimals: 8, liquidation_threshold: 0.6798 },
+    { symbol: "WHBAR", atoken_address: "0x24f361363fccdf89ca015809f0b1a45a0ad06c05", decimals: 8, liquidation_threshold: 0.6798, price_usd_display: 0 },
   ];
   const TESTNET_FALLBACK_HTS = {
     "0.0.2231533": { symbol: "HBARX", decimals: 8 },
   };
+
+  // Patch fallback token prices from API reserves by symbol
+  for (const fallback of TESTNET_FALLBACK_ATOKENS) {
+    const apiReserve = reserves.find(r => r.symbol === fallback.symbol);
+    if (apiReserve?.price_usd_display) fallback.price_usd_display = apiReserve.price_usd_display;
+    if (apiReserve?.liquidation_threshold) fallback.liquidation_threshold = Number(apiReserve.liquidation_threshold);
+  }
+  for (const [htsId, fallback] of Object.entries(TESTNET_FALLBACK_HTS)) {
+    const apiReserve = reserves.find(r => r.symbol === fallback.symbol);
+    if (apiReserve?.price_usd_display) fallback.price_usd_display = apiReserve.price_usd_display;
+  }
 
   const collateralReserves = reserves.filter(r => r.atoken_address && r.active !== false);
 
@@ -177,7 +189,7 @@ async function getMirrorNodePosition(accountId, evmAddress, mirrorBase, rpcUrl, 
     ...allHtsReserves,
     ...fallbackHtsIds
       .filter(id => !allHtsReserves.some(r => r.hts_address === id))
-      .map(id => ({ hts_address: id, ...TESTNET_FALLBACK_HTS[id], price_usd_display: 0 })),
+      .map(id => ({ hts_address: id, ...TESTNET_FALLBACK_HTS[id], price_usd_display: TESTNET_FALLBACK_HTS[id].price_usd_display || 0 })),
   ];
 
   for (const reserve of candidateReserves) {

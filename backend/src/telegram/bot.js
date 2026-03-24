@@ -256,22 +256,21 @@ function createBot({ onRunRequested, onApproveExecution } = {}) {
     const debt = pos.totalDebtETH || "3.00000000 HBARX";
 
     const demoText = [
-      "⚡ *Execution Proposed* \\[DEMO\\]",
+      "⚡ Execution Proposed [DEMO]",
       "",
       "Strategy reasoner detected elevated risk:",
       `  Health Factor: ${hf}`,
       `  Collateral: ${collateral}`,
       `  Debt: ${debt}`,
       "",
-      "*Recommended action:* de\\_risk\\_candidate",
-      "*Risk band:* elevated",
-      "*Summary:* Health factor approaching liquidation threshold\\. Agent recommends partial debt repayment to restore safe margin\\.",
+      "Recommended action: de_risk_candidate",
+      "Risk band: elevated",
+      "Summary: Health factor approaching liquidation threshold. Agent recommends partial debt repayment to restore safe margin.",
       "",
-      "Approve to simulate on\\-chain execution, or reject to skip\\.",
+      "Approve to simulate on-chain execution, or reject to skip.",
     ].join("\n");
 
     bot.sendMessage(chatId, demoText, {
-      parse_mode: "MarkdownV2",
       reply_markup: {
         inline_keyboard: [[
           { text: "✅ Approve", callback_data: "demo_approve" },

@@ -114,8 +114,15 @@ async function getMirrorNodePosition(accountId, evmAddress, mirrorBase, rpcUrl, 
   const padded = evmAddress.replace("0x", "").toLowerCase().padStart(64, "0");
   const collateralPositions = [];
 
-  // Try API-resolved addresses first, then testnet fallbacks
-  const atokenCandidates = collateralReserves.length > 0 ? collateralReserves : TESTNET_FALLBACK_ATOKENS;
+  // Try API-resolved addresses AND testnet fallback addresses.
+  // Deduplicate by atoken_address (case-insensitive).
+  const seenAtokens = new Set();
+  const atokenCandidates = [...collateralReserves, ...TESTNET_FALLBACK_ATOKENS].filter(r => {
+    const addr = r.atoken_address?.toLowerCase();
+    if (!addr || seenAtokens.has(addr)) return false;
+    seenAtokens.add(addr);
+    return true;
+  });
 
   for (const reserve of atokenCandidates) {
     try {

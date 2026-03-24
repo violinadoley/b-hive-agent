@@ -183,6 +183,7 @@ function createBot({ onRunRequested, onApproveExecution } = {}) {
         "/position — current DeFi position",
         "/run — trigger an immediate pipeline cycle",
         "/health — monitor heartbeat info",
+        "/demo — simulate an execution approval (for demos)",
       ].join("\n"),
     );
   });
@@ -242,6 +243,44 @@ function createBot({ onRunRequested, onApproveExecution } = {}) {
     }
   });
 
+  bot.onText(/\/demo/, (msg) => {
+    if (!isAuthorized(msg.chat.id)) return;
+    const chatId = msg.chat.id;
+
+    // Fetch real position data for the demo message if available
+    const run = getLatestRunSummary();
+    const execRead = run?.events?.find(e => e.agent === "execution_read");
+    const pos = execRead?.outputs?.position || {};
+    const hf = pos.healthFactorDisplay || "1.42";
+    const collateral = pos.totalCollateralETH || "100.0225 HBAR";
+    const debt = pos.totalDebtETH || "3.00000000 HBARX";
+
+    const demoText = [
+      "⚡ *Execution Proposed* \\[DEMO\\]",
+      "",
+      "Strategy reasoner detected elevated risk:",
+      `  Health Factor: ${hf}`,
+      `  Collateral: ${collateral}`,
+      `  Debt: ${debt}`,
+      "",
+      "*Recommended action:* de\\_risk\\_candidate",
+      "*Risk band:* elevated",
+      "*Summary:* Health factor approaching liquidation threshold\\. Agent recommends partial debt repayment to restore safe margin\\.",
+      "",
+      "Approve to simulate on\\-chain execution, or reject to skip\\.",
+    ].join("\n");
+
+    bot.sendMessage(chatId, demoText, {
+      parse_mode: "MarkdownV2",
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "✅ Approve", callback_data: "demo_approve" },
+          { text: "❌ Reject",  callback_data: "demo_reject"  },
+        ]],
+      },
+    });
+  });
+
   const { classifyIntent } = require("./router");
   const { dispatchIntent } = require("./handlers");
 
@@ -280,6 +319,36 @@ function createBot({ onRunRequested, onApproveExecution } = {}) {
     const data = query.data || "";
     if (!chatId || !isAuthorized(chatId)) {
       bot.answerCallbackQuery(query.id, { text: "Not authorized." });
+      return;
+    }
+
+    if (data === "demo_approve") {
+      bot.answerCallbackQuery(query.id, { text: "Simulating execution..." });
+      bot.sendMessage(chatId, "Executing approved action (demo run)...");
+      // Simulate a realistic delay
+      await new Promise(r => setTimeout(r, 2500));
+      const fakeTxId = `0.0.8310571@${Math.floor(Date.now()/1000)}.000000000`;
+      const fakeSeq = Math.floor(Math.random() * 50) + 105;
+      bot.sendMessage(chatId, [
+        "✅ Transaction Submitted [DEMO]",
+        "",
+        "Action: repay (partial debt reduction)",
+        "Token: HBARX",
+        "Amount: 0.5 HBARX",
+        `TX: ${fakeTxId}`,
+        "Status: SUCCESS",
+        `Verify: https://hashscan.io/testnet/transaction/${fakeTxId}`,
+        "",
+        `HCS Attestation: seq=${fakeSeq} on topic 0.0.8318761`,
+        "",
+        "⚠️ This was a demo run — no real transaction was submitted.",
+      ].join("\n"));
+      return;
+    }
+
+    if (data === "demo_reject") {
+      bot.answerCallbackQuery(query.id, { text: "Rejected." });
+      bot.sendMessage(chatId, "Execution rejected. Pipeline will continue monitoring.\n\n⚠️ This was a demo run.");
       return;
     }
 

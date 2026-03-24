@@ -142,13 +142,4 @@ The monitor loop starts immediately, runs a pipeline cycle, and begins the adapt
 
 ---
 
-## Team
-
-| Name | Role | Contact |
-|------|------|---------|
-| Violina Doley | Data Scientist @ IBM | violinadoley.2025@gmail.com |
-| Aakash Mallik | Software Engineer @ Wells Fargo | aakashmallik7777@gmail.com |
-
----
-
 *Every DeFi decision should be explainable, auditable, and verifiable. B-Hive makes that real.*
